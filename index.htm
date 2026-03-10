@@ -97,7 +97,7 @@
     <!-- 語言切換按鈕 -->
     <div class="absolute top-4 right-4 z-50">
         <button id="langToggle" class="bg-white border-2 border-slate-300 px-4 py-2 rounded-lg font-black text-slate-700 hover:bg-slate-50 shadow-sm transition-colors flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" x1="2" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
             <span id="langBtnText">English</span>
         </button>
     </div>
@@ -110,7 +110,8 @@
                 <div>
                     <label id="n0Label" class="text-lg font-black text-black block mb-1">初始 <sup>14</sup>C 數量 (N<sub>0</sub>):</label>
                     <div class="flex items-center gap-2">
-                        <input type="range" id="n0Slider" min="0" max="100" step="0.1" value="14" class="flex-grow">
+                        <!-- 設為 16.58 以精準對應計算後的 100 -->
+                        <input type="range" id="n0Slider" min="0" max="100" step="0.01" value="16.58" class="flex-grow">
                         <span class="text-xl font-mono font-black text-blue-700 min-w-[70px] text-right" id="n0Display">100</span>
                     </div>
                 </div>
@@ -230,7 +231,7 @@
 
         let atoms = [];
         let lastTime = 0;
-        let n0 = 100;
+        let n0 = 100; // 預設初始值精準設為 100
         let currentLang = 'zh';
 
         // 語系定義
@@ -286,6 +287,7 @@
         langToggle.addEventListener('click', switchLanguage);
 
         function getNonLinearN0(val) {
+            // 使用更精細的計算
             const normalized = val / 100;
             const result = 1 + 4999 * Math.pow(normalized, 2.18);
             return Math.round(result);
