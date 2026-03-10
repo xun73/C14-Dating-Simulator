@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>放射性元素定年模擬器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #f8fafc; }
+        
+        :root {
+            --thumb-size: 24px; 
+            --thumb-radius: 12px;
+        }
+
+        .timeline-container {
+            position: relative;
+            width: 100%;
+            padding: 30px 0 10px 0;
+            margin-top: 0.5rem;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #cbd5e1;
+            border-radius: 4px;
+            outline: none;
+            margin: 0;
+            cursor: pointer;
+            position: relative;
+            z-index: 10;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: var(--thumb-size);
+            height: var(--thumb-size);
+            background: #2563eb;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            transition: transform 0.1s ease;
+        }
+
+        .timeline-labels {
+            position: absolute;
+            top: 0;
+            left: var(--thumb-radius);
+            right: var(--thumb-radius);
+            height: 25px;
+        }
+
+        .timeline-label-item {
+            position: absolute;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            text-align: center;
+            font-family: monospace;
+            font-weight: 900;
+            font-size: 18px; 
+            color: #0f172a;
+        }
+
+        .timeline-grid {
+            position: absolute;
+            top: 25px;
+            left: var(--thumb-radius);
+            right: var(--thumb-radius);
+            height: 20px;
+        }
+
+        .grid-tick {
+            position: absolute;
+            width: 3px; 
+            height: 100%;
+            background-color: #475569;
+            transform: translateX(-50%);
+        }
+
+        .equation-box { 
+            font-family: 'Times New Roman', Times, serif; 
+            font-weight: bold; 
+        }
+
+        .switch { position: relative; display: inline-block; width: 34px; height: 18px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 18px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+        
+        .c14-switch input:checked + .slider { background-color: #2563eb; }
+        .n14-switch input:checked + .slider { background-color: #ea580c; }
+    </style>
+</head>
+<body class="p-1 md:p-2 relative min-h-screen pb-16">
+    <!-- 語言切換按鈕 -->
+    <div class="absolute top-4 right-4 z-50">
+        <button id="langToggle" class="bg-white border-2 border-slate-300 px-4 py-2 rounded-lg font-black text-slate-700 hover:bg-slate-50 shadow-sm transition-colors flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            <span id="langBtnText">English</span>
+        </button>
+    </div>
+
+    <div class="max-w-7xl mx-auto bg-white p-3 rounded-xl shadow-lg border border-slate-200">
+        <h1 id="mainTitle" class="text-2xl font-black text-center mb-3 text-slate-900">放射性元素定年模擬器</h1>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 mb-3">
+            <div class="lg:col-span-3 bg-slate-50 p-3 rounded-lg border border-slate-300 flex flex-col justify-center">
+                <div>
+                    <label id="n0Label" class="text-lg font-black text-black block mb-1">初始 <sup>14</sup>C 數量 (N<sub>0</sub>):</label>
+                    <div class="flex items-center gap-2">
+                        <input type="range" id="n0Slider" min="0" max="100" step="0.1" value="14" class="flex-grow">
+                        <span class="text-xl font-mono font-black text-blue-700 min-w-[70px] text-right" id="n0Display">100</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-3 bg-blue-50 p-3 rounded-lg border border-blue-300 flex items-center justify-around">
+                <div class="text-center">
+                    <p class="text-xl text-blue-700 font-black uppercase mb-0"><sup>14</sup>C <span class="countText">數量</span></p>
+                    <p class="text-3xl font-mono font-black text-blue-800" id="realCount">0</p>
+                    <p class="text-lg font-black text-blue-600" id="c14Percent">0.0%</p>
+                    <div class="flex items-center justify-center gap-1 mt-1">
+                        <span class="text-[12px] text-blue-700 font-black graphToggleLabel">圖表</span>
+                        <label class="switch c14-switch">
+                            <input type="checkbox" id="toggleC14" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="h-12 w-[1px] bg-blue-200"></div>
+                <div class="text-center">
+                    <p class="text-xl text-orange-700 font-black uppercase mb-0"><sup>14</sup>N <span class="countText">數量</span></p>
+                    <p class="text-3xl font-mono font-black text-orange-800" id="n14Count">0</p>
+                    <p class="text-lg font-black text-orange-600" id="n14Percent">0.0%</p>
+                    <div class="flex items-center justify-center gap-1 mt-1">
+                        <span class="text-[12px] text-orange-700 font-black graphToggleLabel">圖表</span>
+                        <label class="switch n14-switch">
+                            <input type="checkbox" id="toggleN14">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-6 bg-white border-2 border-slate-200 p-3 rounded-lg shadow-sm relative overflow-hidden flex flex-col justify-center">
+                <div id="theoryTag" class="absolute top-0 right-0 p-1 text-slate-500 text-[14px] uppercase font-black bg-slate-100 px-2 rounded-bl">理論計算</div>
+                <div class="equation-box text-left px-6">
+                    <div class="text-slate-900 text-xl mb-1 font-black">
+                        N(t) = N<sub>0</sub> &times; (1/2)<sup>t / T<sub>1/2</sub></sup>
+                    </div>
+                    <div class="flex flex-wrap justify-start items-center gap-2 text-xl font-black">
+                        <span id="eqPart1" class="text-blue-900"></span>
+                        <span class="text-slate-500">=</span>
+                        <span id="eqPart2" class="text-indigo-900"></span>
+                        <span class="text-slate-500">&approx;</span>
+                        <div class="flex items-baseline gap-1">
+                            <span id="theoryResult" class="text-emerald-900 font-black text-xl"></span>
+                            <span id="theoryPercent" class="text-emerald-700 text-base font-black font-mono"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
+            <div class="flex flex-col">
+                <p id="microLabel" class="text-center mb-1 font-black text-slate-900 text-lg">微觀觀察：原子狀態</p>
+                <canvas id="atomCanvas" width="500" height="300" class="w-full border-2 border-slate-300 rounded-lg bg-white shadow-inner"></canvas>
+            </div>
+            <div class="flex flex-col relative">
+                <p id="macroLabel" class="text-center mb-1 font-black text-slate-900 text-lg">統計結果：實際與理論的數量</p>
+                <canvas id="graphCanvas" width="500" height="300" class="w-full border-2 border-slate-300 rounded-lg bg-slate-50 shadow-inner"></canvas>
+                
+                <div class="absolute top-1/2 -translate-y-1/2 right-4 bg-white/90 backdrop-blur-sm p-3 rounded-lg border border-slate-300 shadow-md pointer-events-none flex flex-col gap-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-5 h-5 rounded-full bg-[#66B3FF] border-2 border-[#0000C6]"></div>
+                        <span class="text-sm font-black text-slate-800"><sup>14</sup>C</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-5 h-5 rounded-full bg-[#ffedd5] border-2 border-[#ea580c]"></div>
+                        <span class="text-sm font-black text-slate-800"><sup>14</sup>N</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-100 px-6 py-4 rounded-xl border border-slate-300 shadow-inner">
+            <div class="timeline-container">
+                <div id="labelsContainer" class="timeline-labels"></div>
+                <div id="gridContainer" class="timeline-grid"></div>
+                <input type="range" id="timeSlider" min="0" max="68760" step="10" value="0">
+                
+                <div class="flex items-center justify-center mt-4 gap-3">
+                    <span id="elapsedLabel" class="text-slate-700 text-xl font-black uppercase">經歷時間：</span>
+                    <div class="flex items-baseline gap-1">
+                        <span id="currentYearDisplay" class="text-5xl font-mono font-black text-blue-700">0</span>
+                        <span id="yearUnit" class="text-blue-600 text-xl font-black">年</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 版權宣告 -->
+    <div id="copyright" class="text-right text-slate-400 text-xs mt-4 px-4 font-bold absolute bottom-4 right-0">
+        臺中市立惠文高中地球科學教師吳秉勳製作
+    </div>
+
+    <script>
+        const atomCanvas = document.getElementById('atomCanvas');
+        const atomCtx = atomCanvas.getContext('2d');
+        const graphCanvas = document.getElementById('graphCanvas');
+        const graphCtx = graphCanvas.getContext('2d');
+        
+        const timeSlider = document.getElementById('timeSlider');
+        const n0Slider = document.getElementById('n0Slider');
+        const n0Display = document.getElementById('n0Display');
+        const toggleC14 = document.getElementById('toggleC14');
+        const toggleN14 = document.getElementById('toggleN14');
+        const currentYearDisplay = document.getElementById('currentYearDisplay');
+        const labelsContainer = document.getElementById('labelsContainer');
+        const gridContainer = document.getElementById('gridContainer');
+        const langToggle = document.getElementById('langToggle');
+
+        const HALF_LIFE = 5730;
+        const MAX_YEARS = 68760; 
+        const LAMBDA = Math.log(2) / HALF_LIFE;
+
+        let atoms = [];
+        let lastTime = 0;
+        let n0 = 100;
+        let currentLang = 'zh';
+
+        // 語系定義
+        const i18n = {
+            zh: {
+                title: "放射性元素定年模擬器",
+                n0Label: "初始 <sup>14</sup>C 數量 (N<sub>0</sub>):",
+                count: "數量",
+                graphToggle: "圖表",
+                theoryTag: "理論計算",
+                microLabel: "微觀觀察：原子狀態",
+                macroLabel: "統計結果：實際與理論的數量",
+                elapsed: "經歷時間：",
+                year: "年",
+                copyright: "臺中市立惠文高中地球科學教師吳秉勳製作",
+                langBtn: "English"
+            },
+            en: {
+                title: "Radioactive Dating Simulator",
+                n0Label: "Initial <sup>14</sup>C Count (N<sub>0</sub>):",
+                count: "Count",
+                graphToggle: "Plot",
+                theoryTag: "Theoretical Calculation",
+                microLabel: "Microscopic View: Atom States",
+                macroLabel: "Macroscopic Results: Actual vs. Theory",
+                elapsed: "Elapsed Time:",
+                year: "Years",
+                copyright: "Made by Bing-Syun Wu, Earth Science Teacher, Hui-Wen Senior High School",
+                langBtn: "中文"
+            }
+        };
+
+        function switchLanguage() {
+            currentLang = currentLang === 'zh' ? 'en' : 'zh';
+            const dict = i18n[currentLang];
+
+            document.getElementById('mainTitle').innerText = dict.title;
+            document.getElementById('n0Label').innerHTML = dict.n0Label;
+            document.getElementById('theoryTag').innerText = dict.theoryTag;
+            document.getElementById('microLabel').innerText = dict.microLabel;
+            document.getElementById('macroLabel').innerText = dict.macroLabel;
+            document.getElementById('elapsedLabel').innerText = dict.elapsed;
+            document.getElementById('yearUnit').innerText = dict.year;
+            document.getElementById('copyright').innerText = dict.copyright;
+            document.getElementById('langBtnText').innerText = dict.langBtn;
+
+            document.querySelectorAll('.countText').forEach(el => el.innerText = dict.count);
+            document.querySelectorAll('.graphToggleLabel').forEach(el => el.innerText = dict.graphToggle);
+            
+            update();
+        }
+
+        langToggle.addEventListener('click', switchLanguage);
+
+        function getNonLinearN0(val) {
+            const normalized = val / 100;
+            const result = 1 + 4999 * Math.pow(normalized, 2.18);
+            return Math.round(result);
+        }
+
+        function setupTimeline() {
+            labelsContainer.innerHTML = '';
+            gridContainer.innerHTML = '';
+            for (let i = 0; i <= 12; i++) {
+                const percent = (i / 12) * 100;
+                const label = document.createElement('div');
+                label.className = 'timeline-label-item';
+                label.style.left = `${percent}%`;
+                label.innerHTML = i === 0 ? '0' : `${i}T`;
+                labelsContainer.appendChild(label);
+
+                const tick = document.createElement('div');
+                tick.className = 'grid-tick';
+                tick.style.left = `${percent}%`;
+                gridContainer.appendChild(tick);
+            }
+        }
+
+        function init() {
+            n0 = getNonLinearN0(parseFloat(n0Slider.value));
+            n0Display.innerText = n0.toLocaleString();
+            atoms = [];
+            lastTime = 0;
+            timeSlider.value = 0;
+
+            const aspectRatio = atomCanvas.width / atomCanvas.height;
+            let cols = Math.ceil(Math.sqrt(n0 * aspectRatio));
+            let rows = Math.ceil(n0 / cols);
+            
+            const padding = 25; 
+            const availableWidth = atomCanvas.width - padding * 2;
+            const availableHeight = atomCanvas.height - padding * 2;
+            
+            let actualSpacing = (n0 === 1) ? 0 : Math.min(availableWidth / (cols - 1 || 1), availableHeight / (rows - 1 || 1));
+            if (n0 < 50) actualSpacing = Math.min(actualSpacing, 40);
+
+            let baseRadius = 7;
+            if (n0 > 4000) baseRadius = 0.9;
+            else if (n0 > 3000) baseRadius = 1.1;
+            else if (n0 > 2000) baseRadius = 1.4;
+            else if (n0 > 1000) baseRadius = 2.0;
+            else if (n0 > 500) baseRadius = 3.0;
+            else if (n0 > 100) baseRadius = 4.5;
+
+            const offsetX = (n0 === 1) ? atomCanvas.width / 2 : padding + (availableWidth - (cols - 1) * actualSpacing) / 2;
+            const offsetY = (n0 === 1) ? atomCanvas.height / 2 : padding + (availableHeight - (rows - 1) * actualSpacing) / 2;
+
+            for (let i = 0; i < n0; i++) {
+                const colIdx = i % cols;
+                const rowIdx = Math.floor(i / cols);
+                atoms.push({
+                    x: offsetX + colIdx * actualSpacing,
+                    y: offsetY + rowIdx * actualSpacing,
+                    isDecayed: false,
+                    decayedAt: null,
+                    radius: baseRadius
+                });
+            }
+            update();
+        }
+
+        function calculateDecay(currentTime) {
+            if (currentTime < lastTime) {
+                atoms.forEach(a => {
+                    if (a.isDecayed && a.decayedAt > currentTime) {
+                        a.isDecayed = false;
+                        a.decayedAt = null;
+                    }
+                });
+            } else if (currentTime > lastTime) {
+                const dt = currentTime - lastTime;
+                const prob = 1 - Math.exp(-LAMBDA * dt);
+                atoms.forEach(a => {
+                    if (!a.isDecayed && Math.random() < prob) {
+                        a.isDecayed = true;
+                        a.decayedAt = currentTime;
+                    }
+                });
+            }
+            lastTime = currentTime;
+        }
+
+        function drawAtoms() {
+            atomCtx.clearRect(0, 0, atomCanvas.width, atomCanvas.height);
+            let currentCount = 0;
+            let strokeWidth = n0 > 3000 ? 0 : (n0 > 1500 ? 0.3 : (n0 > 800 ? 0.6 : 1.5));
+
+            atoms.forEach(a => {
+                if (!a.isDecayed) currentCount++;
+                atomCtx.beginPath();
+                atomCtx.arc(a.x, a.y, a.radius, 0, Math.PI * 2);
+                if (!a.isDecayed) {
+                    atomCtx.fillStyle = '#66B3FF';
+                    atomCtx.strokeStyle = '#0000C6';
+                } else {
+                    atomCtx.fillStyle = '#ffedd5';
+                    atomCtx.strokeStyle = '#ea580c';
+                }
+                atomCtx.fill();
+                if (strokeWidth > 0) {
+                    atomCtx.lineWidth = strokeWidth;
+                    atomCtx.stroke();
+                }
+            });
+            return currentCount;
+        }
+
+        function drawGraph(currentTime, realCount) {
+            graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+            const p = 40; 
+            const w = graphCanvas.width - p * 2.5; 
+            const h = graphCanvas.height - p * 2;
+
+            graphCtx.setLineDash([]);
+            graphCtx.strokeStyle = '#4f4f4f';
+            graphCtx.lineWidth = 1;
+            graphCtx.font = 'bold 12px sans-serif';
+            graphCtx.fillStyle = '#000000';
+            graphCtx.textAlign = 'right';
+            for(let i = 0; i <= 10; i+=2) {
+                let y = (p + h) - (i / 10) * h;
+                graphCtx.beginPath(); 
+                graphCtx.moveTo(p, y); 
+                graphCtx.lineTo(p + w, y); 
+                graphCtx.stroke();
+                graphCtx.fillText((i * 10) + '%', p - 5, y + 4);
+            }
+
+            graphCtx.strokeStyle = '#bebebe';
+            graphCtx.lineWidth = 0.5;
+            const specialPoints = [
+                { val: 0.5, txt: '1/2' },
+                { val: 0.25, txt: '1/4' },
+                { val: 0.125, txt: '1/8' },
+                { val: 0.0625, txt: '1/16' }
+            ];
+            
+            specialPoints.forEach(point => {
+                let y = (p + h) - point.val * h;
+                graphCtx.beginPath();
+                graphCtx.moveTo(p, y);
+                graphCtx.lineTo(p + w, y);
+                graphCtx.stroke();
+                graphCtx.font = '10px monospace';
+                graphCtx.fillStyle = '#475569';
+                graphCtx.textAlign = 'left';
+                graphCtx.fillText(point.txt, p + 2, y - 2);
+            });
+
+            graphCtx.strokeStyle = '#4f4f4f';
+            graphCtx.lineWidth = 1;
+            graphCtx.textAlign = 'center';
+            graphCtx.fillStyle = '#0f172a';
+            graphCtx.font = 'bold 12px sans-serif';
+            for(let i = 0; i <= 12; i++) {
+                let x = p + (i / 12) * w;
+                graphCtx.beginPath(); 
+                graphCtx.moveTo(x, p); 
+                graphCtx.lineTo(x, p + h); 
+                graphCtx.stroke();
+                graphCtx.fillText(i + 'T', x, p + h + 18);
+            }
+
+            graphCtx.setLineDash([5, 5]);
+            graphCtx.lineWidth = 1.5;
+            graphCtx.strokeStyle = '#94a3b8';
+            graphCtx.beginPath();
+            for(let ty = 0; ty <= MAX_YEARS; ty += 500) {
+                let tx = p + (ty / MAX_YEARS) * w;
+                let tyVal = (p + h) - (Math.pow(0.5, ty / HALF_LIFE)) * h;
+                if (ty === 0) graphCtx.moveTo(tx, tyVal);
+                else graphCtx.lineTo(tx, tyVal);
+            }
+            graphCtx.stroke();
+            graphCtx.setLineDash([]);
+
+            const currentX = p + (currentTime / MAX_YEARS) * w;
+            const decayedAtList = atoms.filter(a => a.isDecayed).map(a => a.decayedAt).sort((a,b)=>a-b);
+
+            if (toggleN14.checked) {
+                graphCtx.strokeStyle = '#ea580c';
+                graphCtx.lineWidth = 2; 
+                graphCtx.beginPath(); 
+                graphCtx.moveTo(p, p + h);
+                let lastY = p + h;
+                for(let i = 0; i < decayedAtList.length; i++) {
+                    if (decayedAtList[i] > currentTime) break;
+                    let nextX = p + (decayedAtList[i] / MAX_YEARS) * w;
+                    let nextY = (p + h) - ((i + 1) / n0) * h;
+                    graphCtx.lineTo(nextX, lastY); 
+                    graphCtx.lineTo(nextX, nextY);
+                    lastY = nextY;
+                }
+                graphCtx.lineTo(currentX, lastY); 
+                graphCtx.stroke();
+                graphCtx.fillStyle = '#ea580c';
+                graphCtx.beginPath();
+                graphCtx.arc(currentX, (p + h) - ((n0 - realCount) / n0) * h, 4, 0, Math.PI * 2);
+                graphCtx.fill();
+            }
+
+            if (toggleC14.checked) {
+                graphCtx.strokeStyle = '#2563eb';
+                graphCtx.lineWidth = 3; 
+                graphCtx.beginPath();
+                let lastY = (p + h) - h;
+                graphCtx.moveTo(p, lastY);
+                for(let i = 0; i < decayedAtList.length; i++) {
+                    if (decayedAtList[i] > currentTime) break;
+                    let nextX = p + (decayedAtList[i] / MAX_YEARS) * w;
+                    let nextY = (p + h) - ((n0 - (i + 1)) / n0) * h;
+                    graphCtx.lineTo(nextX, lastY); 
+                    graphCtx.lineTo(nextX, nextY);
+                    lastY = nextY;
+                }
+                graphCtx.lineTo(currentX, lastY); 
+                graphCtx.stroke();
+                graphCtx.fillStyle = '#2563eb';
+                graphCtx.beginPath();
+                graphCtx.arc(currentX, (p + h) - (realCount / n0) * h, 4, 0, Math.PI * 2);
+                graphCtx.fill();
+            }
+        }
+
+        function update() {
+            const t = parseInt(timeSlider.value);
+            currentYearDisplay.innerText = t.toLocaleString();
+            calculateDecay(t);
+            const realC14 = drawAtoms();
+            const realN14 = n0 - realC14;
+            drawGraph(t, realC14);
+
+            document.getElementById('realCount').innerText = realC14.toLocaleString();
+            document.getElementById('n14Count').innerText = realN14.toLocaleString();
+            document.getElementById('c14Percent').innerText = ((realC14 / n0) * 100).toFixed(1) + "%";
+            document.getElementById('n14Percent').innerText = ((realN14 / n0) * 100).toFixed(1) + "%";
+            
+            const theoryRatio = Math.pow(0.5, t / HALF_LIFE);
+            const theoryN = n0 * theoryRatio;
+            const exponentFormatted = (t / HALF_LIFE).toFixed(3);
+            
+            document.getElementById('eqPart1').innerHTML = `N(${t}) = ${n0.toLocaleString()} &times; (1/2)<sup>${t}/5730</sup>`;
+            document.getElementById('eqPart2').innerHTML = `${n0.toLocaleString()} &times; (1/2)<sup>${exponentFormatted}</sup>`;
+            document.getElementById('theoryResult').innerText = Math.round(theoryN).toLocaleString();
+            document.getElementById('theoryPercent').innerText = `(${(theoryRatio * 100).toFixed(1)}%)`;
+        }
+
+        n0Slider.addEventListener('input', init);
+        timeSlider.addEventListener('input', update);
+        toggleC14.addEventListener('change', update);
+        toggleN14.addEventListener('change', update);
+
+        setupTimeline();
+        init();
+    </script>
+</body>
+</html>
